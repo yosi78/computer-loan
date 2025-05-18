@@ -1,0 +1,341 @@
+<!DOCTYPE html>
+<html lang="he">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>השאלת מחשבים</title>
+  <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet" />
+  <script defer src="https://unpkg.com/alpinejs@3.x.x/dist/cdn.min.js"></script>
+</head>
+<body class="bg-gray-100 text-right p-4" x-data="laptopApp()" x-init="init()">
+
+
+  <!-- בחירת פעולה -->
+  <div x-show="screen === 'start'">
+    <h1 class="text-2xl font-bold mb-4">שלום! מה תרצי לבצע?</h1>
+    <button @click="screen = 'borrow1'" class="w-full bg-blue-600 text-white py-3 rounded mb-2">השאלת מחשבים</button>
+    <button @click="screen = 'return1'" class="w-full bg-green-600 text-white py-3 rounded">החזרת מחשבים</button>
+    <button @click="screen = 'admin'" class="w-full bg-gray-700 text-white p-4 rounded mt-4">כניסת מנהל</button>
+  </div>
+
+  <!-- מסך מנהל -->
+  <div x-show="screen === 'admin'" class="p-4">
+    <template x-if="!admin.loggedIn">
+      <div>
+        <h2 class="text-lg font-semibold mb-2">כניסת מנהל</h2>
+        <input type="password" placeholder="סיסמה" x-model="admin.password" class="w-full p-2 border rounded mb-2" />
+        <button @click="loginAdmin" class="bg-gray-800 text-white p-2 rounded">כניסה</button>
+      </div>
+    </template>
+    <template x-if="admin.loggedIn">
+      <div>
+        <h2 class="text-lg font-bold mb-4">סטטוס מחשבים</h2>
+        <h3 class="font-semibold mb-2">מחשבים מושאלים:</h3>
+        <ul class="list-disc pr-4 mb-4">
+          <template x-for="device in borrowedDevices" :key="device">
+            <li x-text="device"></li>
+          </template>
+        </ul>
+        <h3 class="font-semibold mb-2">מחשבים זמינים:</h3>
+        <ul class="list-disc pr-4">
+          <template x-for="device in availableDevices" :key="device">
+            <li x-text="device"></li>
+          </template>
+        </ul>
+        <button @click="screen = 'start'" class="mt-4 bg-gray-400 p-2 rounded text-white">חזרה</button>
+      </div>
+    </template>
+  </div>
+
+  <!-- מסך השאלת מחשבים - מסך 1: בחר מורה וכיתה -->
+  <div x-show="screen === 'borrow1'">
+    <h2 class="text-xl font-semibold mb-2">בחרי מורה וכיתה</h2>
+
+    <label class="block mb-1 font-medium">שם מורה:</label>
+    <select x-model="form.teacher" class="w-full p-2 mb-4 border rounded">
+      <option value="" disabled selected>בחרי מורה</option>
+      <template x-for="teacher in teachers" :key="teacher">
+        <option :value="teacher" x-text="teacher"></option>
+      </template>
+    </select>
+
+    <label class="block mb-1 font-medium">כיתה:</label>
+    <select x-model="form.classroom" class="w-full p-2 mb-4 border rounded">
+      <option value="" disabled selected>בחרי כיתה</option>
+      <template x-for="classroom in classrooms" :key="classroom">
+        <option :value="classroom" x-text="classroom"></option>
+      </template>
+    </select>
+
+    <button @click="screen = 'borrow2'" :disabled="!form.teacher || !form.classroom" 
+            class="w-full bg-blue-600 text-white py-3 rounded disabled:opacity-50">הבא</button>
+  </div>
+
+  <!-- מסך השאלת מחשבים - מסך 2: תאריך, שעה, כמות -->
+  <div x-show="screen === 'borrow2'">
+    <h2 class="text-xl font-semibold mb-2">פרטי השאלה</h2>
+
+    <label class="block mb-1 font-medium">תאריך השאלה:</label>
+    <input type="date" x-model="form.date" class="w-full p-2 mb-4 border rounded" />
+
+    <label class="block mb-1 font-medium">שעת השאלה:</label>
+    <select x-model="form.time" class="w-full p-2 mb-4 border rounded">
+      <option value="" disabled selected>בחרי שעה</option>
+      <template x-for="time in times" :key="time">
+        <option :value="time" x-text="time"></option>
+      </template>
+    </select>
+
+    <label class="block mb-1 font-medium">מספר מחשבים מבוקש:</label>
+    <input type="number" min="1" max="10" x-model.number="form.amount" class="w-full p-2 mb-4 border rounded" />
+
+    <button @click="screen = 'borrow3'" 
+            :disabled="!form.date || !form.time || !form.amount" 
+            class="w-full bg-blue-600 text-white py-3 rounded disabled:opacity-50">הבא</button>
+  </div>
+
+  <!-- מסך השאלת מחשבים - מסך 3: בחירת עגלה ומחשבים -->
+  <div x-show="screen === 'borrow3'">
+    <h2 class="text-xl font-semibold mb-2">בחרי עגלה ומחשבים</h2>
+
+    <label class="block mb-1 font-medium">עגלה:</label>
+    <select x-model="form.cart" class="w-full p-2 mb-4 border rounded">
+      <option value="" disabled selected>בחרי עגלה</option>
+      <template x-for="cart in carts" :key="cart">
+        <option :value="cart" x-text="cart"></option>
+      </template>
+    </select>
+
+    <label class="block mb-1 font-medium">בחר מחשבים:</label>
+    <template x-if="availableDevices.length === 0">
+      <p class="mb-4">אין מחשבים זמינים כרגע.</p>
+    </template>
+    <template x-if="availableDevices.length > 0">
+      <div class="mb-4 max-h-48 overflow-auto border p-2 rounded">
+        <template x-for="device in availableDevices" :key="device">
+          <label class="block mb-1">
+            <input type="checkbox" :value="device" x-model="form.devices" />
+            <span x-text="device"></span>
+          </label>
+        </template>
+      </div>
+    </template>
+
+    <button @click="submitBorrow()" 
+            :disabled="form.devices.length === 0 || !form.cart"
+            class="w-full bg-blue-600 text-white py-3 rounded disabled:opacity-50">שלח</button>
+    <button @click="screen = 'borrow2'" class="w-full mt-2 bg-gray-300 py-3 rounded">חזור</button>
+  </div>
+
+  <!-- מסך החזרת מחשבים - מסך 1: בחר מורה וכיתה -->
+  <div x-show="screen === 'return1'">
+    <h2 class="text-xl font-semibold mb-2">בחר מורה וכיתה להחזרה</h2>
+
+    <label class="block mb-1 font-medium">שם מורה:</label>
+    <select x-model="form.teacher" class="w-full p-2 mb-4 border rounded">
+      <option value="" disabled selected>בחר מורה</option>
+      <template x-for="teacher in teachers" :key="teacher">
+        <option :value="teacher" x-text="teacher"></option>
+      </template>
+    </select>
+
+    <label class="block mb-1 font-medium">כיתה:</label>
+    <select x-model="form.classroom" class="w-full p-2 mb-4 border rounded">
+      <option value="" disabled selected>בחר כיתה</option>
+      <template x-for="classroom in classrooms" :key="classroom">
+        <option :value="classroom" x-text="classroom"></option>
+      </template>
+    </select>
+
+    <button @click="screen = 'return2'" :disabled="!form.teacher || !form.classroom" 
+            class="w-full bg-green-600 text-white py-3 rounded disabled:opacity-50">הבא</button>
+  </div>
+
+  <!-- מסך החזרת מחשבים - מסך 2: פרטים להחזרה -->
+  <div x-show="screen === 'return2'">
+    <h2 class="text-xl font-semibold mb-2">פרטי החזרה</h2>
+
+    <label class="block mb-1 font-medium">תאריך החזרה:</label>
+    <input type="date" x-model="form.returnDate" class="w-full p-2 mb-4 border rounded" />
+
+    <label class="block mb-1 font-medium">שעת החזרה:</label>
+    <select x-model="form.returnTime" class="w-full p-2 mb-4 border rounded">
+      <option value="" disabled selected>בחר שעה</option>
+      <template x-for="time in times" :key="time">
+        <option :value="time" x-text="time"></option>
+      </template>
+    </select>
+
+    <label class="block mb-1 font-medium">עגלה:</label>
+    <select x-model="form.returnCart" class="w-full p-2 mb-4 border rounded">
+      <option value="" disabled selected>בחר עגלה</option>
+      <template x-for="cart in carts" :key="cart">
+        <option :value="cart" x-text="cart"></option>
+      </template>
+    </select>
+
+    <label class="block mb-1 font-medium">בחר מחשבים להחזרה:</label>
+    <template x-if="borrowedDevices.length === 0">
+      <p class="mb-4">אין מחשבים מושאלים כרגע.</p>
+    </template>
+    <template x-if="borrowedDevices.length > 0">
+      <div class="mb-4 max-h-48 overflow-auto border p-2 rounded">
+        <template x-for="device in borrowedDevices" :key="device">
+          <label class="block mb-1">
+            <input type="checkbox" :value="device" x-model="form.returnDevices" />
+            <span x-text="device"></span>
+          </label>
+        </template>
+      </div>
+    </template>
+
+    <label class="block mb-1 font-medium">הערות להחזרה (אופציונלי):</label>
+    <textarea x-model="form.returnNote" class="w-full p-2 mb-4 border rounded" rows="3"></textarea>
+
+    <button @click="submitReturn()" 
+            :disabled="form.returnDevices.length === 0 || !form.returnCart" 
+            class="w-full bg-green-600 text-white py-3 rounded disabled:opacity-50">שלח החזרה</button>
+    <button @click="screen = 'return1'" class="w-full mt-2 bg-gray-300 py-3 rounded">חזור</button>
+  </div>
+
+  <!-- הודעת הצלחה -->
+  <div x-show="screen === 'success'">
+    <h2 class="text-2xl font-bold text-green-600 mb-4">אושרה הבקשה</h2>
+    <button @click="resetForm()" class="w-full bg-blue-600 text-white py-3 rounded">חזרה לתפריט הראשי</button>
+  </div>
+
+ <script>
+  function laptopApp() {
+    const URL = 'https://script.google.com/macros/s/AKfycbx3PEJO_I05gPCuuEr2OHevTVM_w1tTaN7G28_vDoVwT1alL9zODnxBqzrTWF-t-9jb/exec';
+    return {
+      screen: 'start',
+      teachers: [],
+      classrooms: [],
+      times: [],
+      carts: [],
+      availableDevices: [],
+      borrowedDevices: [],
+      form: {
+        teacher: '',
+        classroom: '',
+        date: '',
+        time: '',
+        amount: '',
+        cart: '',
+        devices: [],
+        returnDate: '',
+        returnTime: '',
+        returnCart: '',
+        returnDevices: [],
+        returnNote: ''
+      },
+      admin: {
+        password: '',
+        loggedIn: false
+      },
+
+      async init() {
+        const response = await fetch(URL);
+        const data = await response.json();
+        this.teachers = data["מורות"];
+        this.classrooms = data["כיתות"];
+        this.times = data["שעות"];
+        this.carts = data["עגלות"];
+        this.availableDevices = data["מחשבים"];
+        // אפשר לשלב קריאה גם למושאלים בעתיד
+      },
+
+      loginAdmin() {
+        if (this.admin.password === '1234') {
+          this.admin.loggedIn = true;
+        } else {
+          alert('סיסמה שגויה');
+        }
+      },
+
+      async submitBorrow() {
+        try {
+          const payload = {
+            type: 'borrow',
+            teacher: this.form.teacher,
+            classroom: this.form.classroom,
+            date: this.form.date,
+            time: this.form.time,
+            cart: this.form.cart,
+            devices: this.form.devices
+          };
+
+          const res = await fetch(URL, {
+            method: 'POST',
+            body: JSON.stringify(payload),
+            headers: {
+              'Content-Type': 'application/json'
+            }
+          });
+
+          if (res.ok) {
+            this.screen = 'success';
+          } else {
+            alert('שגיאה בשליחה');
+          }
+        } catch (error) {
+          alert('תקלה בשליחה: ' + error.message);
+        }
+      },
+
+      async submitReturn() {
+        try {
+          const payload = {
+            type: 'return',
+            teacher: this.form.teacher,
+            classroom: this.form.classroom,
+            returnDate: this.form.returnDate,
+            returnTime: this.form.returnTime,
+            returnCart: this.form.returnCart,
+            returnDevices: this.form.returnDevices,
+            returnNote: this.form.returnNote
+          };
+
+          const res = await fetch(URL, {
+            method: 'POST',
+            body: JSON.stringify(payload),
+            headers: {
+              'Content-Type': 'application/json'
+            }
+          });
+
+          if (res.ok) {
+            this.screen = 'success';
+          } else {
+            alert('שגיאה בשליחה');
+          }
+        } catch (error) {
+          alert('תקלה בשליחה: ' + error.message);
+        }
+      },
+
+      resetForm() {
+        this.form = {
+          teacher: '',
+          classroom: '',
+          date: '',
+          time: '',
+          amount: '',
+          cart: '',
+          devices: [],
+          returnDate: '',
+          returnTime: '',
+          returnCart: '',
+          returnDevices: [],
+          returnNote: ''
+        };
+        this.admin.password = '';
+        this.admin.loggedIn = false;
+        this.screen = 'start';
+      }
+    };
+  }
+</script>
+
+</body>
+</html>
